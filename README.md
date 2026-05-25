@@ -15,8 +15,8 @@
 
 - Linux (Raspberry Pi OS / Debian / Ubuntu)
 - .NET 10 SDK
-- `mpg123` (สำหรับไฟล์ MP3)
-- `alsa-utils` / `aplay` (สำหรับไฟล์ WAV)
+- `mpg123` สำหรับไฟล์ MP3
+- `alsa-utils` / `aplay` สำหรับไฟล์ WAV
 
 ---
 
@@ -42,13 +42,20 @@ sudo apt install -y mpg123 alsa-utils
 ### 3. Clone โปรเจกต์
 
 ```bash
-git clone https://github.com/<your-username>/schoolbell.git
-cd schoolbell/SchoolBell
+git clone https://github.com/tanapatwk/SchoolBell.git
+cd SchoolBell/SchoolBell
 ```
 
 ### 4. ตั้งค่ารหัสผ่าน Admin
 
-แก้ไขไฟล์ `appsettings.json`
+คัดลอกไฟล์ตัวอย่างแล้วแก้ไข
+
+```bash
+cp appsettings.example.json appsettings.json
+nano appsettings.json
+```
+
+แก้ค่า `AdminPassword` เป็นรหัสผ่านที่ต้องการ
 
 ```json
 {
@@ -56,7 +63,7 @@ cd schoolbell/SchoolBell
 }
 ```
 
-### 5. Build และ Run ทดสอบ
+### 5. Run ทดสอบ
 
 ```bash
 dotnet run --urls "http://0.0.0.0:5196"
@@ -71,7 +78,7 @@ dotnet run --urls "http://0.0.0.0:5196"
 ### 1. Build แบบ Release
 
 ```bash
-cd ~/schoolbell/SchoolBell
+cd ~/SchoolBell/SchoolBell
 dotnet publish -c Release -o /opt/schoolbell
 ```
 
@@ -81,7 +88,7 @@ dotnet publish -c Release -o /opt/schoolbell
 sudo nano /etc/systemd/system/schoolbell.service
 ```
 
-วางเนื้อหานี้ลงไป (แก้ `User` ให้ตรงกับ username ของคุณ)
+วางเนื้อหานี้ โดยแก้ `YOUR_USERNAME` ให้ตรงกับ username ของคุณ
 
 ```ini
 [Unit]
@@ -136,24 +143,20 @@ journalctl -u schoolbell -f
 ---
 
 ## โครงสร้างโปรเจกต์
-SchoolBell/
-├── Data/
-│   └── AppDbContext.cs       # Entity Framework DbContext
-├── Jobs/
-│   └── BellJob.cs            # Quartz.NET Job สำหรับตรวจเวลากริ่ง
-├── Models/
-│   ├── AudioFile.cs          # Model ไฟล์เสียง
-│   └── Schedule.cs           # Model ตารางเวลา
-├── Services/
-│   ├── AudioFileService.cs   # จัดการ upload/ลบไฟล์เสียง
-│   ├── AudioService.cs       # เล่น/หยุดเสียงผ่าน mpg123/aplay
-│   └── ScheduleService.cs    # CRUD ตารางเวลา
-├── wwwroot/
-│   ├── index.html            # Web UI
-│   └── uploads/              # ไฟล์เสียงที่ upload
-├── appsettings.json          # Config (รหัสผ่าน Admin)
-├── Program.cs                # Entry point + API endpoints
-└── SchoolBell.csproj
+
+| ไฟล์/โฟลเดอร์ | หน้าที่ |
+|---|---|
+| `Data/AppDbContext.cs` | Entity Framework DbContext |
+| `Jobs/BellJob.cs` | Quartz.NET Job ตรวจเวลากริ่ง |
+| `Models/AudioFile.cs` | Model ไฟล์เสียง |
+| `Models/Schedule.cs` | Model ตารางเวลา |
+| `Services/AudioFileService.cs` | จัดการ upload/ลบไฟล์เสียง |
+| `Services/AudioService.cs` | เล่น/หยุดเสียงผ่าน mpg123/aplay |
+| `Services/ScheduleService.cs` | CRUD ตารางเวลา |
+| `wwwroot/index.html` | Web UI |
+| `appsettings.json` | Config รหัสผ่าน Admin |
+| `Program.cs` | Entry point + API endpoints |
+
 ---
 
 ## Tech Stack
