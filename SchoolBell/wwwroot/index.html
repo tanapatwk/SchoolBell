@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>School Bell</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: sans-serif; background: #f0f2f5; color: #333; }
+
+    header {
+      background: #1a73e8; color: white;
+      padding: 14px 20px;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 8px;
+    }
+    header .left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    header h1 { font-size: 17px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .container { max-width: 900px; margin: 20px auto; padding: 0 12px; }
+
+    .card {
+      background: white; border-radius: 12px;
+      padding: 16px; margin-bottom: 16px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    }
+    .card-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .card h2 { font-size: 15px; font-weight: 600; color: #1a73e8; }
+
+    /* ---- Schedule list (mobile-first) ---- */
+    .schedule-list { display: flex; flex-direction: column; gap: 8px; }
+
+    .schedule-item {
+      border: 1px solid #e8eaed; border-radius: 10px; overflow: hidden;
+    }
+    .schedule-summary {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 14px; cursor: pointer; user-select: none;
+      gap: 8px;
+    }
+    .schedule-summary:hover { background: #f8f9fa; }
+
+    .schedule-summary .info { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+    .schedule-name { font-weight: 500; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .schedule-time { font-size: 13px; color: #666; white-space: nowrap; }
+
+    .schedule-summary .right { display: flex; align-items: center; gap: 8px; }
+
+    .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 500; white-space: nowrap; }
+    .badge-on  { background: #e6f4ea; color: #1e7e34; }
+    .badge-off { background: #fce8e6; color: #c5221f; }
+
+    .chevron { font-size: 12px; color: #999; transition: transform 0.2s; }
+    .schedule-item.open .chevron { transform: rotate(180deg); }
+
+    .schedule-detail {
+      display: none; padding: 12px 14px;
+      border-top: 1px solid #f1f3f4;
+      background: #fafafa;
+    }
+    .schedule-item.open .schedule-detail { display: block; }
+
+    .detail-row { display: flex; gap: 6px; align-items: flex-start; margin-bottom: 8px; font-size: 13px; }
+    .detail-label { color: #888; min-width: 48px; }
+
+    .days { display: flex; gap: 3px; flex-wrap: wrap; }
+    .days span {
+      display: inline-flex; width: 26px; height: 26px;
+      align-items: center; justify-content: center;
+      border-radius: 50%; font-size: 11px;
+      background: #e8f0fe; color: #1a73e8;
+    }
+    .days span.off { background: #f1f3f4; color: #bbb; }
+
+    .detail-actions { display: flex; gap: 8px; margin-top: 10px; }
+
+    /* ---- Audio list ---- */
+    .audio-list { display: flex; flex-direction: column; gap: 8px; }
+    .audio-item {
+      display: flex; align-items: center; justify-content: space-between;
+      border: 1px solid #e8eaed; border-radius: 10px;
+      padding: 10px 14px; gap: 8px;
+    }
+    .audio-info { flex: 1; min-width: 0; }
+    .audio-name { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .audio-size { font-size: 12px; color: #888; margin-top: 2px; }
+    .audio-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+    /* ---- Buttons ---- */
+    button {
+      padding: 7px 14px; border: none; border-radius: 8px;
+      cursor: pointer; font-size: 13px; font-weight: 500;
+      white-space: nowrap;
+    }
+    .btn-primary { background: #1a73e8; color: white; }
+    .btn-danger  { background: #fce8e6; color: #c5221f; }
+    .btn-play    { background: #e6f4ea; color: #1e7e34; }
+    .btn-edit    { background: #e8f0fe; color: #1a73e8; }
+    .btn-logout  { background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.4); padding: 6px 12px; }
+    .btn-login   { background: white; color: #1a73e8; font-weight: 600; padding: 6px 12px; }
+    button:hover { opacity: 0.85; }
+
+    /* ---- Upload ---- */
+    .upload-area {
+      border: 2px dashed #ddd; border-radius: 8px;
+      padding: 18px; text-align: center; color: #888;
+      cursor: pointer; transition: border-color 0.2s; margin-bottom: 12px;
+    }
+    .upload-area:hover { border-color: #1a73e8; color: #1a73e8; }
+
+    /* ---- Modals ---- */
+    .overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.45); z-index: 100;
+      align-items: flex-end; justify-content: center;
+    }
+    .overlay.show { display: flex; }
+
+    @media (min-width: 600px) {
+      .overlay { align-items: center; }
+      .modal { border-radius: 12px; max-height: 90vh; }
+    }
+
+    .modal {
+      background: white; width: 100%; max-width: 480px;
+      padding: 20px; border-radius: 16px 16px 0 0;
+      max-height: 92vh; overflow-y: auto;
+    }
+    .modal h3 { font-size: 16px; font-weight: 600; margin-bottom: 16px; }
+
+    .form-group { margin-bottom: 14px; }
+    .form-group label { display: block; font-size: 13px; color: #555; margin-bottom: 4px; }
+    .form-group input, .form-group select {
+      width: 100%; padding: 9px 10px; border: 1px solid #ddd;
+      border-radius: 8px; font-size: 14px;
+    }
+    .day-picker { display: flex; gap: 6px; flex-wrap: wrap; }
+    .day-picker label {
+      display: flex; align-items: center; gap: 4px;
+      font-size: 13px; cursor: pointer;
+      background: #f1f3f4; padding: 5px 11px; border-radius: 20px;
+    }
+    .day-picker input[type=checkbox] { accent-color: #1a73e8; }
+
+    .modal-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+    .btn-cancel { background: #f1f3f4; color: #333; }
+
+    .error-msg { color: #c5221f; font-size: 13px; margin-top: 6px; min-height: 18px; }
+
+    /* ---- Toast ---- */
+    #toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: #333; color: white; padding: 10px 20px;
+      border-radius: 8px; font-size: 14px; opacity: 0;
+      transition: opacity 0.3s; pointer-events: none; z-index: 999;
+      white-space: nowrap;
+    }
+    #toast.show { opacity: 1; }
+
+    .admin-only { display: none; }
+    .admin-only.show { display: block; }
+
+    .guest-badge {
+      background: rgba(255,255,255,0.2); color: white;
+      padding: 4px 10px; border-radius: 12px; font-size: 12px;
+    }
+
+    .empty { text-align: center; color: #aaa; padding: 20px; font-size: 14px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="left">
+    <span style="font-size:22px">🔔</span>
+    <h1>School Bell</h1>
+  </div>
+  <div id="authArea"></div>
+</header>
+
+<div class="container">
+
+  <!-- Audio Files (ขึ้นก่อน) -->
+  <div class="card">
+    <div class="card-header">
+      <h2>🎵 ไฟล์เสียง</h2>
+    </div>
+    <div class="admin-only" id="uploadArea">
+      <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+        <div style="font-size:26px">🎵</div>
+        <div style="margin-top:6px;font-size:13px">คลิกเพื่ออัปโหลดไฟล์ MP3 / WAV</div>
+        <input type="file" id="fileInput" accept=".mp3,.wav" style="display:none" onchange="uploadFile(this)">
+      </div>
+    </div>
+    <div class="audio-list" id="audioList"></div>
+  </div>
+
+  <!-- Schedules -->
+  <div class="card">
+    <div class="card-header">
+      <h2>⏰ ตารางเวลากริ่ง</h2>
+      <button class="btn-primary admin-only" id="addScheduleBtn" onclick="openScheduleModal()">+ เพิ่ม</button>
+    </div>
+    <div class="schedule-list" id="scheduleList"></div>
+  </div>
+
+</div>
+
+<!-- Login Modal -->
+<div class="overlay" id="loginOverlay">
+  <div class="modal">
+    <h3>🔐 เข้าสู่ระบบผู้ดูแล</h3>
+    <div class="form-group">
+      <label>รหัสผ่าน</label>
+      <input type="password" id="loginPassword" placeholder="กรอกรหัสผ่าน"
+        onkeydown="if(event.key==='Enter') doLogin()">
+    </div>
+    <div class="error-msg" id="loginError"></div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeLoginModal()">ยกเลิก</button>
+      <button class="btn-primary" onclick="doLogin()">เข้าสู่ระบบ</button>
+    </div>
+  </div>
+</div>
+
+<!-- Schedule Modal -->
+<div class="overlay" id="scheduleOverlay">
+  <div class="modal">
+    <h3 id="modalTitle">เพิ่มตารางกริ่ง</h3>
+    <input type="hidden" id="scheduleId">
+    <div class="form-group">
+      <label>ชื่อตาราง</label>
+      <input type="text" id="sName" placeholder="เช่น เข้าแถว, พักกลางวัน">
+    </div>
+    <div class="form-group">
+      <label>เวลา</label>
+      <input type="time" id="sTime">
+    </div>
+    <div class="form-group">
+      <label>วัน</label>
+      <div class="day-picker">
+        <label><input type="checkbox" id="dMon"> จ</label>
+        <label><input type="checkbox" id="dTue"> อ</label>
+        <label><input type="checkbox" id="dWed"> พ</label>
+        <label><input type="checkbox" id="dThu"> พฤ</label>
+        <label><input type="checkbox" id="dFri"> ศ</label>
+        <label><input type="checkbox" id="dSat"> ส</label>
+        <label><input type="checkbox" id="dSun"> อา</label>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>ไฟล์เสียง</label>
+      <select id="sAudio"></select>
+    </div>
+    <div class="form-group">
+      <label><input type="checkbox" id="sEnabled" checked> เปิดใช้งาน</label>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeScheduleModal()">ยกเลิก</button>
+      <button class="btn-primary" onclick="saveSchedule()">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const DAY_LABELS = ['อา','จ','อ','พ','พฤ','ศ','ส'];
+let isAdmin = false;
+let audioFiles = [];
+
+async function api(method, path, body) {
+  const opts = { method, headers: {} };
+  if (body) { opts.body = JSON.stringify(body); opts.headers['Content-Type'] = 'application/json'; }
+  const r = await fetch('/api' + path, opts);
+  if (!r.ok) throw new Error(await r.text());
+  const text = await r.text();
+  return text ? JSON.parse(text) : null;
+}
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
+  return (bytes/1024/1024).toFixed(1) + ' MB';
+}
+
+// ---- Auth ----
+async function checkAuth() {
+  const r = await api('GET', '/me');
+  isAdmin = r.isAdmin;
+  await updateAuthUI();
+}
+
+async function updateAuthUI() {
+  const authArea = document.getElementById('authArea');
+  if (isAdmin) {
+    authArea.innerHTML = `<span style="color:white;margin-right:10px;font-size:12px">👤 ผู้ดูแล</span>
+      <button class="btn-logout" onclick="doLogout()">ออกจากระบบ</button>`;
+  } else {
+    authArea.innerHTML = `<span class="guest-badge" style="margin-right:8px">👁 Guest</span>
+      <button class="btn-login" onclick="openLoginModal()">เข้าสู่ระบบ</button>`;
+  }
+  document.querySelectorAll('.admin-only').forEach(el => {
+    el.classList.toggle('show', isAdmin);
+  });
+  await loadAudioFiles();
+  await loadSchedules();
+}
+
+function openLoginModal() {
+  document.getElementById('loginPassword').value = '';
+  document.getElementById('loginError').textContent = '';
+  document.getElementById('loginOverlay').classList.add('show');
+  setTimeout(() => document.getElementById('loginPassword').focus(), 100);
+}
+function closeLoginModal() {
+  document.getElementById('loginOverlay').classList.remove('show');
+}
+
+async function doLogin() {
+  const password = document.getElementById('loginPassword').value;
+  const r = await api('POST', '/login', { password });
+  if (r.success) {
+    isAdmin = true;
+    closeLoginModal();
+    toast('เข้าสู่ระบบสำเร็จ');
+    await updateAuthUI();
+  } else {
+    document.getElementById('loginError').textContent = r.message || 'รหัสผ่านไม่ถูกต้อง';
+  }
+}
+
+async function doLogout() {
+  await api('POST', '/logout');
+  isAdmin = false;
+  toast('ออกจากระบบแล้ว');
+  await updateAuthUI();
+}
+
+// ---- Audio Files ----
+async function loadAudioFiles() {
+  audioFiles = await api('GET', '/audiofiles');
+  const list = document.getElementById('audioList');
+  if (!audioFiles.length) {
+    list.innerHTML = '<div class="empty">ยังไม่มีไฟล์เสียง</div>';
+    return;
+  }
+  list.innerHTML = audioFiles.map(f => `
+    <div class="audio-item">
+      <div class="audio-info">
+        <div class="audio-name">${f.originalName}</div>
+        <div class="audio-size">${formatSize(f.fileSize)}</div>
+      </div>
+      <div class="audio-actions">
+        <button class="btn-play" onclick="playNow(${f.id})">▶ เล่น</button>
+        <button class="btn-danger" onclick="stopPlay()">■ หยุด</button>
+        ${isAdmin ? `<button class="btn-danger" onclick="deleteAudio(${f.id})">ลบ</button>` : ''}
+      </div>
+    </div>`).join('');
+
+  const sel = document.getElementById('sAudio');
+  sel.innerHTML = audioFiles.map(f =>
+    `<option value="${f.id}">${f.originalName}</option>`).join('');
+}
+
+async function uploadFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const form = new FormData();
+  form.append('file', file);
+  try {
+    await fetch('/api/audiofiles', { method: 'POST', body: form });
+    toast('อัปโหลดสำเร็จ: ' + file.name);
+    input.value = '';
+    await loadAudioFiles();
+  } catch { toast('อัปโหลดล้มเหลว'); }
+}
+
+async function deleteAudio(id) {
+  // เช็คก่อนว่ามีตารางกริ่งใช้อยู่ไหม
+  const usedBy = await api('GET', `/audiofiles/${id}/usedby`);
+  if (usedBy.length > 0) {
+    alert('ไม่สามารถลบได้ เพราะไฟล์นี้ถูกใช้งานในตารางกริ่ง: ' + usedBy.join(', ') + ' กรุณาลบหรือเปลี่ยนไฟล์เสียงในตารางกริ่งก่อน');
+    return;
+  }
+  if (!confirm('ลบไฟล์เสียงนี้?')) return;
+  await api('DELETE', `/audiofiles/${id}`);
+  toast('ลบไฟล์แล้ว');
+  await loadAudioFiles();
+}
+
+async function playNow(id) {
+  const r = await api('POST', `/play/${id}`);
+  toast(r.message);
+}
+
+async function stopPlay() {
+  const r = await api('POST', '/stop');
+  toast(r.message);
+}
+
+// ---- Schedules ----
+async function loadSchedules() {
+  const schedules = await api('GET', '/schedules');
+  const list = document.getElementById('scheduleList');
+  if (!schedules.length) {
+    list.innerHTML = '<div class="empty">ยังไม่มีตารางเวลา</div>';
+    return;
+  }
+  list.innerHTML = schedules.map(s => {
+    const days = [s.sunday,s.monday,s.tuesday,s.wednesday,s.thursday,s.friday,s.saturday];
+    const dayHtml = days.map((on,i) =>
+      `<span class="${on?'':'off'}">${DAY_LABELS[i]}</span>`).join('');
+    const adminBtns = isAdmin ? `
+      <button class="btn-edit" onclick="editSchedule(${s.id});event.stopPropagation()">แก้ไข</button>
+      <button class="btn-danger" onclick="deleteSchedule(${s.id});event.stopPropagation()">ลบ</button>` : '';
+    return `
+      <div class="schedule-item" id="si-${s.id}">
+        <div class="schedule-summary" onclick="toggleSchedule(${s.id})">
+          <div class="info">
+            <span class="schedule-name">${s.name}</span>
+            <span class="schedule-time">${s.time.substring(0,5)}</span>
+          </div>
+          <div class="right">
+            <span class="badge ${s.isEnabled?'badge-on':'badge-off'}">${s.isEnabled?'เปิด':'ปิด'}</span>
+            <span class="chevron">▼</span>
+          </div>
+        </div>
+        <div class="schedule-detail">
+          <div class="detail-row">
+            <span class="detail-label">วัน</span>
+            <div class="days">${dayHtml}</div>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">เพลง</span>
+            <span>${s.audioFile?.originalName ?? '-'}</span>
+          </div>
+          <div class="detail-actions">${adminBtns}</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function toggleSchedule(id) {
+  document.getElementById('si-'+id).classList.toggle('open');
+}
+
+function openScheduleModal(schedule = null) {
+  document.getElementById('modalTitle').textContent = schedule ? 'แก้ไขตารางกริ่ง' : 'เพิ่มตารางกริ่ง';
+  document.getElementById('scheduleId').value = schedule?.id ?? '';
+  document.getElementById('sName').value = schedule?.name ?? '';
+  document.getElementById('sTime').value = schedule?.time?.substring(0,5) ?? '';
+  document.getElementById('dMon').checked = schedule?.monday ?? true;
+  document.getElementById('dTue').checked = schedule?.tuesday ?? true;
+  document.getElementById('dWed').checked = schedule?.wednesday ?? true;
+  document.getElementById('dThu').checked = schedule?.thursday ?? true;
+  document.getElementById('dFri').checked = schedule?.friday ?? true;
+  document.getElementById('dSat').checked = schedule?.saturday ?? false;
+  document.getElementById('dSun').checked = schedule?.sunday ?? false;
+  document.getElementById('sEnabled').checked = schedule?.isEnabled ?? true;
+  if (schedule?.audioFileId)
+    document.getElementById('sAudio').value = schedule.audioFileId;
+  document.getElementById('scheduleOverlay').classList.add('show');
+}
+
+function closeScheduleModal() {
+  document.getElementById('scheduleOverlay').classList.remove('show');
+}
+
+async function editSchedule(id) {
+  const s = await api('GET', `/schedules/${id}`);
+  openScheduleModal(s);
+}
+
+async function saveSchedule() {
+  const id = document.getElementById('scheduleId').value;
+  const name = document.getElementById('sName').value.trim();
+  const time = document.getElementById('sTime').value;
+  const audioId = document.getElementById('sAudio').value;
+
+  if (!name) { toast('กรุณาใส่ชื่อตาราง'); return; }
+  if (!time)  { toast('กรุณาเลือกเวลา'); return; }
+  if (!audioId) { toast('กรุณาเลือกไฟล์เสียง'); return; }
+  const anyDay = ['dMon','dTue','dWed','dThu','dFri','dSat','dSun']
+    .some(id => document.getElementById(id).checked);
+  if (!anyDay) { toast('กรุณาเลือกอย่างน้อยหนึ่งวัน'); return; }
+
+  const body = {
+    name, time: time + ':00',
+    monday:    document.getElementById('dMon').checked,
+    tuesday:   document.getElementById('dTue').checked,
+    wednesday: document.getElementById('dWed').checked,
+    thursday:  document.getElementById('dThu').checked,
+    friday:    document.getElementById('dFri').checked,
+    saturday:  document.getElementById('dSat').checked,
+    sunday:    document.getElementById('dSun').checked,
+    isEnabled: document.getElementById('sEnabled').checked,
+    audioFileId: parseInt(audioId)
+  };
+  try {
+    if (id) await api('PUT', `/schedules/${id}`, body);
+    else     await api('POST', '/schedules', body);
+    toast(id ? 'แก้ไขแล้ว' : 'เพิ่มตารางแล้ว');
+    closeScheduleModal();
+    await loadSchedules();
+  } catch (e) { toast('เกิดข้อผิดพลาด: ' + e.message); }
+}
+
+async function deleteSchedule(id) {
+  if (!confirm('ลบตารางนี้?')) return;
+  await api('DELETE', `/schedules/${id}`);
+  toast('ลบตารางแล้ว');
+  await loadSchedules();
+}
+
+// ---- Init ----
+checkAuth();
+</script>
+</body>
+</html>

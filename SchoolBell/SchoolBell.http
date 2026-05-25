@@ -1,0 +1,6 @@
+@SchoolBell_HostAddress = http://localhost:5196
+
+GET {{SchoolBell_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

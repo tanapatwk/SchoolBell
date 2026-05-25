@@ -1,0 +1,29 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+
+# Database (ข้อมูลจริงไม่ควร commit)
+*.db
+*.db-shm
+*.db-wal
+
+# Upload files (ไฟล์เสียงไม่ควร commit)
+wwwroot/uploads/*
+!wwwroot/uploads/.gitkeep
+
+# Config ที่มีข้อมูลสำคัญ
+appsettings.Production.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Audio uploads
+SchoolBell/wwwroot/uploads/*
+!SchoolBell/wwwroot/uploads/.gitkeep
+
+# appsettings จริง (มีรหัสผ่าน)
+SchoolBell/appsettings.json
