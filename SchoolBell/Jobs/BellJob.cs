@@ -20,8 +20,9 @@ public class BellJob : IJob
 
     public async Task Execute(IJobExecutionContext context)
     {
-        var now = TimeOnly.FromDateTime(DateTime.Now);
-        var today = DateTime.Now.DayOfWeek;
+        var now = DateTime.Now;
+        var nowTime = TimeOnly.FromDateTime(now);
+        var today = now.DayOfWeek;
 
         var schedules = await _db.Schedules
             .Include(s => s.AudioFile)
@@ -30,11 +31,11 @@ public class BellJob : IJob
 
         foreach (var schedule in schedules)
         {
-            // เช็คว่าเวลาตรงกันไหม (ภายใน 1 นาที)
-            var diff = Math.Abs((now - schedule.Time).TotalSeconds);
+            // เช็คว่าเวลาตรงกันไหม (ภายใน 60 วินาที)
+            var diff = Math.Abs((nowTime - schedule.Time).TotalSeconds);
             if (diff > 60) continue;
 
-            // เช็ควันที่ตรงกันไหม
+            // เช็คว่าวันตรงกันไหม
             var dayMatch = today switch
             {
                 DayOfWeek.Monday    => schedule.Monday,
@@ -46,14 +47,31 @@ public class BellJob : IJob
                 DayOfWeek.Sunday    => schedule.Sunday,
                 _ => false
             };
-
             if (!dayMatch) continue;
 
-            _logger.LogInformation("Triggering bell: {Name} at {Time}", schedule.Name, schedule.Time);
+            // เช็คว่า trigger ไปแล้วในชั่วโมง:นาที:วันนี้หรือยัง
+            if (schedule.LastTriggeredAt.HasValue)
+            {
+                var last = schedule.LastTriggeredAt.Value;
+                if (last.Date == now.Date
+                    && last.Hour == now.Hour
+                    && last.Minute == now.Minute)
+                {
+                    _logger.LogDebug("Skipping {Name}: already triggered at {Last}", 
+                        schedule.Name, last);
+                    continue;
+                }
+            }
+
+            _logger.LogInformation("Triggering bell: {Name} at {Time}", 
+                schedule.Name, schedule.Time);
+
+            // บันทึกเวลา trigger ก่อนเล่น เพื่อป้องกัน trigger ซ้ำ
+            schedule.LastTriggeredAt = now;
+            await _db.SaveChangesAsync();
 
             if (schedule.AudioFile != null)
-                await _audio.PlayAsync(schedule.AudioFile.FileName);
+                _ = _audio.PlayAsync(schedule.AudioFile.FileName);
         }
     }
 }
-

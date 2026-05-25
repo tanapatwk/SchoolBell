@@ -13,6 +13,7 @@ public class Schedule
     public bool Saturday { get; set; }
     public bool Sunday { get; set; }
     public bool IsEnabled { get; set; } = true;
+    public DateTime? LastTriggeredAt { get; set; }
     public int AudioFileId { get; set; }
     public AudioFile? AudioFile { get; set; }
 }
