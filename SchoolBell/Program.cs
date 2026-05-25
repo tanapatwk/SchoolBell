@@ -145,6 +145,14 @@ app.MapPost("/api/play/{audioFileId}", async (int audioFileId, AppDbContext db, 
     return Results.Ok(new { message = $"Playing: {file.OriginalName}" });
 });
 
+// --- Status API ---
+app.MapGet("/api/status", (AudioService audio) =>
+    Results.Ok(new
+    {
+        isPlaying = audio.IsPlaying,
+        currentFileName = audio.CurrentFileName
+    }));
+
 // --- Stop API (Guest ทำได้) ---
 app.MapPost("/api/stop", (AudioService audio) =>
 {

@@ -169,6 +169,8 @@
     }
 
     .empty { text-align: center; color: #aaa; padding: 20px; font-size: 14px; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-play.playing { background: #ccc; color: #888; }
   </style>
 </head>
 <body>
@@ -361,8 +363,8 @@ async function loadAudioFiles() {
         <div class="audio-size">${formatSize(f.fileSize)}</div>
       </div>
       <div class="audio-actions">
-        <button class="btn-play" onclick="playNow(${f.id})">▶ เล่น</button>
-        <button class="btn-danger" onclick="stopPlay()">■ หยุด</button>
+        <button class="btn-play" data-play-btn="${f.fileName}" onclick="playNow(${f.id})">▶ เล่น</button>
+        <button class="btn-danger" data-stop-btn onclick="stopPlay()" disabled>■ หยุด</button>
         ${isAdmin ? `<button class="btn-danger" onclick="deleteAudio(${f.id})">ลบ</button>` : ''}
       </div>
     </div>`).join('');
@@ -522,8 +524,39 @@ async function deleteSchedule(id) {
   await loadSchedules();
 }
 
+// ---- Status Polling ----
+let playingFileName = null;
+
+async function pollStatus() {
+  try {
+    const s = await api('GET', '/status');
+    playingFileName = s.isPlaying ? s.currentFileName : null;
+    updatePlayButtons();
+  } catch {}
+}
+
+function updatePlayButtons() {
+  // อัปเดตปุ่ม play ทุกปุ่ม
+  document.querySelectorAll('[data-play-btn]').forEach(btn => {
+    const fileName = btn.getAttribute('data-play-btn');
+    const isThisPlaying = playingFileName !== null;
+    btn.disabled = isThisPlaying;
+    btn.classList.toggle('playing', isThisPlaying && fileName === playingFileName);
+    btn.textContent = (isThisPlaying && fileName === playingFileName) ? '🔊 กำลังเล่น' : '▶ เล่น';
+  });
+
+  // อัปเดตปุ่มหยุด
+  document.querySelectorAll('[data-stop-btn]').forEach(btn => {
+    btn.disabled = playingFileName === null;
+  });
+}
+
+// polling ทุก 1 วินาที
+setInterval(pollStatus, 1000);
+
 // ---- Init ----
 checkAuth();
+pollStatus();
 </script>
 </body>
 </html>

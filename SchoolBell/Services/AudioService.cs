@@ -6,6 +6,7 @@ public class AudioService
     private readonly string _uploadPath;
     private System.Diagnostics.Process? _currentProcess;
     private readonly object _lock = new();
+    private string? _currentFileName;
 
     public AudioService(ILogger<AudioService> logger, IWebHostEnvironment env)
     {
@@ -22,6 +23,11 @@ public class AudioService
         }
     }
 
+    public string? CurrentFileName
+    {
+        get { lock (_lock) return _currentFileName; }
+    }
+
     public void Stop()
     {
         lock (_lock)
@@ -32,6 +38,7 @@ public class AudioService
                 _logger.LogInformation("Playback stopped");
             }
             _currentProcess = null;
+            _currentFileName = null;
         }
     }
 
@@ -45,7 +52,6 @@ public class AudioService
             return;
         }
 
-        // หยุดเพลงที่กำลังเล่นอยู่ก่อน
         Stop();
 
         var ext = Path.GetExtension(fileName).ToLower();
@@ -74,6 +80,7 @@ public class AudioService
         {
             process.Start();
             _currentProcess = process;
+            _currentFileName = fileName;
         }
 
         await process.WaitForExitAsync();
@@ -81,7 +88,10 @@ public class AudioService
         lock (_lock)
         {
             if (_currentProcess == process)
+            {
                 _currentProcess = null;
+                _currentFileName = null;
+            }
         }
 
         _logger.LogInformation("Finished playing: {FileName}", fileName);
