@@ -76,9 +76,12 @@ dotnet run --urls "http://0.0.0.0:5196"
 ## ตั้งให้รันอัตโนมัติด้วย systemd
 
 ### 1. Build แบบ Release
+ให้แก้ `YOUR_USERNAME` ให้ตรงกับ username ของคุณ
 
 ```bash
 cd ~/SchoolBell/SchoolBell
+sudo mkdir -p /opt/schoolbell
+sudo chown YOUR_USERNAME:YOUR_USERNAME /opt/schoolbell
 dotnet publish -c Release -o /opt/schoolbell
 ```
 
