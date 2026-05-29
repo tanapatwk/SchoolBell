@@ -7,6 +7,7 @@ public class AudioService
     private System.Diagnostics.Process? _currentProcess;
     private readonly object _lock = new();
     private string? _currentFileName;
+    private DateTime? _playbackStartedAt;
 
     public AudioService(ILogger<AudioService> logger, IWebHostEnvironment env)
     {
@@ -28,6 +29,11 @@ public class AudioService
         get { lock (_lock) return _currentFileName; }
     }
 
+    public DateTime? PlaybackStartedAt
+    {
+        get { lock (_lock) return _playbackStartedAt; }
+    }
+
     public void Stop()
     {
         lock (_lock)
@@ -35,6 +41,7 @@ public class AudioService
             StopCurrentProcessLocked();
             _currentProcess = null;
             _currentFileName = null;
+            _playbackStartedAt = null;
         }
     }
 
@@ -79,6 +86,7 @@ public class AudioService
                 process.Start();
                 _currentProcess = process;
                 _currentFileName = fileName;
+                _playbackStartedAt = DateTime.Now;
             }
 
             await process.WaitForExitAsync();
@@ -91,6 +99,7 @@ public class AudioService
                 {
                     _currentProcess = null;
                     _currentFileName = null;
+                    _playbackStartedAt = null;
                 }
             }
 

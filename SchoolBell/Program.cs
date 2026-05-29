@@ -208,12 +208,34 @@ app.MapPost("/api/play/{audioFileId}", async (int audioFileId, AppDbContext db, 
 }).RequireRateLimiting("playback");
 
 // --- Status API ---
-app.MapGet("/api/status", (AudioService audio) =>
-    Results.Ok(new
+app.MapGet("/api/status", async (AudioService audio, AppDbContext db) =>
+{
+    var now = DateTime.Now;
+    var currentFileName = audio.CurrentFileName;
+    var playbackStartedAt = audio.PlaybackStartedAt;
+    var currentAudio = currentFileName is null
+        ? null
+        : await db.AudioFiles.FirstOrDefaultAsync(a => a.FileName == currentFileName);
+    var nextSchedule = await GetNextScheduleAsync(db, now);
+
+    return Results.Ok(new
     {
+        serverTime = now,
         isPlaying = audio.IsPlaying,
-        currentFileName = audio.CurrentFileName
-    }));
+        currentFileName,
+        currentAudioName = currentAudio?.OriginalName,
+        playbackStartedAt,
+        playbackElapsedSeconds = playbackStartedAt.HasValue
+            ? Math.Max(0, (int)(now - playbackStartedAt.Value).TotalSeconds)
+            : 0,
+        nextBell = nextSchedule is null ? null : new
+        {
+            name = nextSchedule.Schedule.Name,
+            time = nextSchedule.At,
+            audioName = nextSchedule.Schedule.AudioFile?.OriginalName
+        }
+    });
+});
 
 // --- Stop API (Guest ทำได้) ---
 app.MapPost("/api/stop", (AudioService audio) =>
@@ -227,6 +249,49 @@ static string GetClientKey(HttpContext ctx) =>
     ?? ctx.Session.Id
     ?? "unknown";
 
+static async Task<NextSchedule?> GetNextScheduleAsync(AppDbContext db, DateTime now)
+{
+    var schedules = await db.Schedules
+        .Include(s => s.AudioFile)
+        .Where(s => s.IsEnabled)
+        .ToListAsync();
+
+    return schedules
+        .Select(schedule => new NextSchedule(schedule, GetNextRunAt(schedule, now)))
+        .Where(next => next.At.HasValue)
+        .Select(next => new NextSchedule(next.Schedule, next.At!.Value))
+        .OrderBy(next => next.At)
+        .FirstOrDefault();
+}
+
+static DateTime? GetNextRunAt(Schedule schedule, DateTime now)
+{
+    for (var offset = 0; offset < 7; offset++)
+    {
+        var day = now.Date.AddDays(offset);
+        if (!RunsOnDay(schedule, day.DayOfWeek)) continue;
+
+        var runAt = day.Add(schedule.Time.ToTimeSpan());
+        if (runAt > now) return runAt;
+    }
+
+    return null;
+}
+
+static bool RunsOnDay(Schedule schedule, DayOfWeek day) =>
+    day switch
+    {
+        DayOfWeek.Monday => schedule.Monday,
+        DayOfWeek.Tuesday => schedule.Tuesday,
+        DayOfWeek.Wednesday => schedule.Wednesday,
+        DayOfWeek.Thursday => schedule.Thursday,
+        DayOfWeek.Friday => schedule.Friday,
+        DayOfWeek.Saturday => schedule.Saturday,
+        DayOfWeek.Sunday => schedule.Sunday,
+        _ => false
+    };
+
 app.Run();
 
 record LoginRequest(string Password);
+record NextSchedule(Schedule Schedule, DateTime? At);

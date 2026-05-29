@@ -30,6 +30,46 @@
     }
     .card h2 { font-size: 15px; font-weight: 600; color: #1a73e8; }
 
+    /* ---- Dashboard ---- */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+    @media (min-width: 720px) {
+      .dashboard-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+    .status-panel {
+      border: 1px solid #e8eaed;
+      border-radius: 10px;
+      padding: 12px 14px;
+      min-width: 0;
+      background: #fafafa;
+    }
+    .status-label {
+      color: #777;
+      font-size: 12px;
+      margin-bottom: 6px;
+    }
+    .status-value {
+      font-size: 18px;
+      font-weight: 600;
+      color: #222;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .status-sub {
+      color: #666;
+      font-size: 12px;
+      margin-top: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .status-playing { background: #e6f4ea; border-color: #b7e1c1; }
+    .status-idle { background: #fafafa; }
+
     /* ---- Schedule list (mobile-first) ---- */
     .schedule-list { display: flex; flex-direction: column; gap: 8px; }
 
@@ -185,6 +225,30 @@
 
 <div class="container">
 
+  <!-- Dashboard -->
+  <div class="card">
+    <div class="card-header">
+      <h2>📊 สถานะปัจจุบัน</h2>
+    </div>
+    <div class="dashboard-grid">
+      <div class="status-panel">
+        <div class="status-label">เวลา Server</div>
+        <div class="status-value" id="serverTimeValue">--:--:--</div>
+        <div class="status-sub" id="serverDateValue">-</div>
+      </div>
+      <div class="status-panel">
+        <div class="status-label">กริ่งถัดไป</div>
+        <div class="status-value" id="nextBellTimeValue">-</div>
+        <div class="status-sub" id="nextBellNameValue">ยังไม่มีตารางที่เปิดใช้งาน</div>
+      </div>
+      <div class="status-panel status-idle" id="playbackPanel">
+        <div class="status-label">การเล่นเสียง</div>
+        <div class="status-value" id="playbackStatusValue">ไม่ได้เล่น</div>
+        <div class="status-sub" id="playbackElapsedValue">-</div>
+      </div>
+    </div>
+  </div>
+
   <!-- Audio Files (ขึ้นก่อน) -->
   <div class="card">
     <div class="card-header">
@@ -293,6 +357,24 @@ function formatSize(bytes) {
   if (bytes < 1024) return bytes + ' B';
   if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
   return (bytes/1024/1024).toFixed(1) + ' MB';
+}
+
+function formatDuration(totalSeconds) {
+  const seconds = Math.max(0, Number(totalSeconds) || 0);
+  const minutes = Math.floor(seconds / 60);
+  const rest = seconds % 60;
+  return `${minutes} นาที ${rest} วินาที`;
+}
+
+function formatThaiDateTime(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return {
+    time: date.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+    shortTime: date.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
+    date: date.toLocaleDateString('th-TH', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })
+  };
 }
 
 function escapeHtml(value) {
@@ -542,8 +624,32 @@ async function pollStatus() {
   try {
     const s = await api('GET', '/status');
     playingFileName = s.isPlaying ? s.currentFileName : null;
+    updateDashboard(s);
     updatePlayButtons();
   } catch {}
+}
+
+function updateDashboard(status) {
+  const serverTime = formatThaiDateTime(status.serverTime);
+  document.getElementById('serverTimeValue').textContent = serverTime?.time ?? '--:--:--';
+  document.getElementById('serverDateValue').textContent = serverTime?.date ?? '-';
+
+  const nextBell = status.nextBell;
+  const nextBellTime = formatThaiDateTime(nextBell?.time);
+  document.getElementById('nextBellTimeValue').textContent = nextBellTime?.shortTime ?? '-';
+  document.getElementById('nextBellNameValue').textContent = nextBell
+    ? `${nextBell.name}${nextBell.audioName ? ' • ' + nextBell.audioName : ''} • ${nextBellTime?.date ?? ''}`
+    : 'ยังไม่มีตารางที่เปิดใช้งาน';
+
+  const playbackPanel = document.getElementById('playbackPanel');
+  playbackPanel.classList.toggle('status-playing', status.isPlaying);
+  playbackPanel.classList.toggle('status-idle', !status.isPlaying);
+  document.getElementById('playbackStatusValue').textContent = status.isPlaying
+    ? (status.currentAudioName ?? status.currentFileName ?? 'กำลังเล่น')
+    : 'ไม่ได้เล่น';
+  document.getElementById('playbackElapsedValue').textContent = status.isPlaying
+    ? `เล่นไปแล้ว ${formatDuration(status.playbackElapsedSeconds)}`
+    : '-';
 }
 
 function updatePlayButtons() {
