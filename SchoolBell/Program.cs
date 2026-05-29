@@ -1,3 +1,4 @@
+using System.Threading.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Quartz;
 using SchoolBell.Data;
@@ -21,12 +22,41 @@ builder.Services.AddDistributedMemoryCache();
 builder.Services.AddSession(opt =>
 {
     opt.IdleTimeout = TimeSpan.FromHours(8);
+    opt.Cookie.Name = "SchoolBell.Session";
     opt.Cookie.HttpOnly = true;
     opt.Cookie.IsEssential = true;
+    opt.Cookie.SameSite = SameSiteMode.Strict;
+    opt.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
 });
 
 // Antiforgery
 builder.Services.AddAntiforgery();
+
+// Rate limiting
+builder.Services.AddRateLimiter(opt =>
+{
+    opt.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    opt.AddPolicy("login", ctx =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            GetClientKey(ctx),
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
+    opt.AddPolicy("playback", ctx =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            GetClientKey(ctx),
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromSeconds(30),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
+});
 
 // Quartz Scheduler
 builder.Services.AddQuartz(q =>
@@ -53,8 +83,19 @@ app.UseDefaultFiles();
 app.UseStaticFiles();
 app.UseAntiforgery();
 app.UseSession();
+app.UseRateLimiter();
 
-var adminPassword = builder.Configuration["AdminPassword"] ?? "admin1234";
+var adminPassword = builder.Configuration["AdminPassword"];
+if (string.IsNullOrWhiteSpace(adminPassword))
+{
+    if (!app.Environment.IsDevelopment())
+        throw new InvalidOperationException("AdminPassword must be configured in production.");
+
+    adminPassword = "admin1234";
+}
+
+if (!app.Environment.IsDevelopment() && adminPassword == "admin1234")
+    throw new InvalidOperationException("Default AdminPassword is not allowed in production.");
 
 // Helper ตรวจสอบว่า login แล้วหรือยัง
 bool IsAdmin(HttpContext ctx) =>
@@ -69,7 +110,7 @@ app.MapPost("/api/login", (HttpContext ctx, LoginRequest req) =>
         return Results.Ok(new { success = true });
     }
     return Results.Ok(new { success = false, message = "รหัสผ่านไม่ถูกต้อง" });
-});
+}).RequireRateLimiting("login");
 
 app.MapPost("/api/logout", (HttpContext ctx) =>
 {
@@ -107,7 +148,14 @@ app.MapGet("/api/audiofiles/{id}/usedby", async (int id, AudioFileService svc) =
 app.MapDelete("/api/audiofiles/{id}", async (HttpContext ctx, int id, AudioFileService svc) =>
 {
     if (!IsAdmin(ctx)) return Results.Forbid();
-    return await svc.DeleteAsync(id) ? Results.Ok() : Results.NotFound();
+    try
+    {
+        return await svc.DeleteAsync(id) ? Results.Ok() : Results.NotFound();
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(ex.Message);
+    }
 });
 
 // --- Schedules API ---
@@ -120,14 +168,28 @@ app.MapGet("/api/schedules/{id}", async (int id, ScheduleService svc) =>
 app.MapPost("/api/schedules", async (HttpContext ctx, Schedule schedule, ScheduleService svc) =>
 {
     if (!IsAdmin(ctx)) return Results.Forbid();
-    return Results.Ok(await svc.CreateAsync(schedule));
+    try
+    {
+        return Results.Ok(await svc.CreateAsync(schedule));
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(ex.Message);
+    }
 });
 
 app.MapPut("/api/schedules/{id}", async (HttpContext ctx, int id, Schedule schedule, ScheduleService svc) =>
 {
     if (!IsAdmin(ctx)) return Results.Forbid();
     schedule.Id = id;
-    return await svc.UpdateAsync(schedule) ? Results.Ok() : Results.NotFound();
+    try
+    {
+        return await svc.UpdateAsync(schedule) ? Results.Ok() : Results.NotFound();
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(ex.Message);
+    }
 });
 
 app.MapDelete("/api/schedules/{id}", async (HttpContext ctx, int id, ScheduleService svc) =>
@@ -143,7 +205,7 @@ app.MapPost("/api/play/{audioFileId}", async (int audioFileId, AppDbContext db, 
     if (file is null) return Results.NotFound();
     _ = audio.PlayAsync(file.FileName);
     return Results.Ok(new { message = $"Playing: {file.OriginalName}" });
-});
+}).RequireRateLimiting("playback");
 
 // --- Status API ---
 app.MapGet("/api/status", (AudioService audio) =>
@@ -158,7 +220,12 @@ app.MapPost("/api/stop", (AudioService audio) =>
 {
     audio.Stop();
     return Results.Ok(new { message = "Stopped" });
-});
+}).RequireRateLimiting("playback");
+
+static string GetClientKey(HttpContext ctx) =>
+    ctx.Connection.RemoteIpAddress?.ToString()
+    ?? ctx.Session.Id
+    ?? "unknown";
 
 app.Run();
 

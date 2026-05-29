@@ -174,6 +174,17 @@ journalctl -u schoolbell -f
 
 ---
 
+## Known Bugs / Fixes
+
+- Fixed: ป้องกันการกดเล่นเพลงรัว ๆ หรือ schedule เวลาซ้อนกันจนสร้าง `mpg123` / `aplay` หลาย process ค้างในระบบ โดยให้การหยุดและเริ่มเสียงเป็น atomic และให้ scheduler ข้ามรอบเมื่อมีเสียงกำลังเล่นอยู่
+- Fixed: Production จะไม่ยอมเริ่มระบบถ้าไม่ได้ตั้ง `AdminPassword` หรือยังใช้ค่า default `admin1234`
+- Fixed: เพิ่ม rate limit ให้ login และปุ่มเล่น/หยุดเสียง เพื่อลด brute force และการกดรัวเกินจำเป็น
+- Fixed: เพิ่ม server-side validation สำหรับ upload, schedule, และการลบไฟล์เสียงที่ยังถูกใช้งานอยู่
+- Fixed: ป้องกัน XSS จากชื่อไฟล์เสียงและชื่อตารางในหน้า Web UI
+- Fixed: เพิ่ม session cookie hardening ด้วยชื่อ cookie เฉพาะระบบและ `SameSite=Strict`
+
+---
+
 ## License
 
 MIT

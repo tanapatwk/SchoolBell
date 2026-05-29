@@ -32,11 +32,7 @@ public class AudioService
     {
         lock (_lock)
         {
-            if (_currentProcess is { HasExited: false })
-            {
-                _currentProcess.Kill();
-                _logger.LogInformation("Playback stopped");
-            }
+            StopCurrentProcessLocked();
             _currentProcess = null;
             _currentFileName = null;
         }
@@ -51,8 +47,6 @@ public class AudioService
             _logger.LogWarning("Audio file not found: {FilePath}", filePath);
             return;
         }
-
-        Stop();
 
         var ext = Path.GetExtension(fileName).ToLower();
         var (command, args) = ext switch
@@ -70,30 +64,54 @@ public class AudioService
             {
                 FileName = command,
                 Arguments = args,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
+                RedirectStandardOutput = false,
+                RedirectStandardError = false,
                 UseShellExecute = false
             }
         };
 
-        lock (_lock)
+        try
         {
-            process.Start();
-            _currentProcess = process;
-            _currentFileName = fileName;
-        }
-
-        await process.WaitForExitAsync();
-
-        lock (_lock)
-        {
-            if (_currentProcess == process)
+            lock (_lock)
             {
-                _currentProcess = null;
-                _currentFileName = null;
+                StopCurrentProcessLocked();
+
+                process.Start();
+                _currentProcess = process;
+                _currentFileName = fileName;
             }
+
+            await process.WaitForExitAsync();
+        }
+        finally
+        {
+            lock (_lock)
+            {
+                if (_currentProcess == process)
+                {
+                    _currentProcess = null;
+                    _currentFileName = null;
+                }
+            }
+
+            process.Dispose();
         }
 
         _logger.LogInformation("Finished playing: {FileName}", fileName);
+    }
+
+    private void StopCurrentProcessLocked()
+    {
+        if (_currentProcess is not { HasExited: false }) return;
+
+        try
+        {
+            _currentProcess.Kill(entireProcessTree: true);
+            _logger.LogInformation("Playback stopped");
+        }
+        catch (InvalidOperationException)
+        {
+            // Process already exited between the HasExited check and Kill.
+        }
     }
 }

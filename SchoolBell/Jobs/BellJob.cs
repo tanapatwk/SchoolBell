@@ -31,9 +31,9 @@ public class BellJob : IJob
 
         foreach (var schedule in schedules)
         {
-            // เช็คว่าเวลาตรงกันไหม (ภายใน 60 วินาที)
-            var diff = Math.Abs((nowTime - schedule.Time).TotalSeconds);
-            if (diff > 60) continue;
+            // เช็คว่าเวลาตรงกันในนาทีนี้ไหม
+            if (nowTime.Hour != schedule.Time.Hour || nowTime.Minute != schedule.Time.Minute)
+                continue;
 
             // เช็คว่าวันตรงกันไหม
             var dayMatch = today switch
@@ -70,8 +70,15 @@ public class BellJob : IJob
             schedule.LastTriggeredAt = now;
             await _db.SaveChangesAsync();
 
-            if (schedule.AudioFile != null)
-                _ = _audio.PlayAsync(schedule.AudioFile.FileName);
+            if (schedule.AudioFile == null) continue;
+
+            if (_audio.IsPlaying)
+            {
+                _logger.LogWarning("Skipping {Name}: audio is already playing", schedule.Name);
+                continue;
+            }
+
+            _ = _audio.PlayAsync(schedule.AudioFile.FileName);
         }
     }
 }

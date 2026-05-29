@@ -295,6 +295,16 @@ function formatSize(bytes) {
   return (bytes/1024/1024).toFixed(1) + ' MB';
 }
 
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, ch => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  })[ch]);
+}
+
 // ---- Auth ----
 async function checkAuth() {
   const r = await api('GET', '/me');
@@ -359,7 +369,7 @@ async function loadAudioFiles() {
   list.innerHTML = audioFiles.map(f => `
     <div class="audio-item">
       <div class="audio-info">
-        <div class="audio-name">${f.originalName}</div>
+        <div class="audio-name">${escapeHtml(f.originalName)}</div>
         <div class="audio-size">${formatSize(f.fileSize)}</div>
       </div>
       <div class="audio-actions">
@@ -371,7 +381,7 @@ async function loadAudioFiles() {
 
   const sel = document.getElementById('sAudio');
   sel.innerHTML = audioFiles.map(f =>
-    `<option value="${f.id}">${f.originalName}</option>`).join('');
+    `<option value="${f.id}">${escapeHtml(f.originalName)}</option>`).join('');
 }
 
 async function uploadFile(input) {
@@ -380,11 +390,12 @@ async function uploadFile(input) {
   const form = new FormData();
   form.append('file', file);
   try {
-    await fetch('/api/audiofiles', { method: 'POST', body: form });
+    const r = await fetch('/api/audiofiles', { method: 'POST', body: form });
+    if (!r.ok) throw new Error(await r.text());
     toast('อัปโหลดสำเร็จ: ' + file.name);
     input.value = '';
     await loadAudioFiles();
-  } catch { toast('อัปโหลดล้มเหลว'); }
+  } catch (e) { toast('อัปโหลดล้มเหลว: ' + e.message); }
 }
 
 async function deleteAudio(id) {
@@ -429,8 +440,8 @@ async function loadSchedules() {
       <div class="schedule-item" id="si-${s.id}">
         <div class="schedule-summary" onclick="toggleSchedule(${s.id})">
           <div class="info">
-            <span class="schedule-name">${s.name}</span>
-            <span class="schedule-time">${s.time.substring(0,5)}</span>
+            <span class="schedule-name">${escapeHtml(s.name)}</span>
+            <span class="schedule-time">${escapeHtml(s.time.substring(0,5))}</span>
           </div>
           <div class="right">
             <span class="badge ${s.isEnabled?'badge-on':'badge-off'}">${s.isEnabled?'เปิด':'ปิด'}</span>
@@ -444,7 +455,7 @@ async function loadSchedules() {
           </div>
           <div class="detail-row">
             <span class="detail-label">เพลง</span>
-            <span>${s.audioFile?.originalName ?? '-'}</span>
+            <span>${escapeHtml(s.audioFile?.originalName ?? '-')}</span>
           </div>
           <div class="detail-actions">${adminBtns}</div>
         </div>
