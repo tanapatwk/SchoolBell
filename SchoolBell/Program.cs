@@ -178,22 +178,32 @@ app.MapPost("/api/reset", async (HttpContext ctx, AppDbContext db, IWebHostEnvir
 {
     if (!IsAdmin(ctx)) return Results.Forbid();
 
-    audio.Stop();
-
-    var audioFiles = await db.AudioFiles.ToListAsync();
-    var uploadPath = Path.Combine(env.WebRootPath, "uploads");
-    foreach (var audioFile in audioFiles)
+    try
     {
-        var filePath = Path.Combine(uploadPath, audioFile.FileName);
-        if (File.Exists(filePath)) File.Delete(filePath);
+        audio.Stop();
+
+        var audioFiles = await db.AudioFiles.ToListAsync();
+        var uploadPath = Path.Combine(env.WebRootPath, "uploads");
+
+        db.Schedules.RemoveRange(db.Schedules);
+        await db.SaveChangesAsync();
+
+        db.AudioFiles.RemoveRange(audioFiles);
+        await db.SaveChangesAsync();
+
+        foreach (var audioFile in audioFiles)
+        {
+            var filePath = Path.Combine(uploadPath, audioFile.FileName);
+            if (File.Exists(filePath)) File.Delete(filePath);
+        }
+
+        return Results.Ok(new { message = "Reset completed" });
     }
-
-    db.Schedules.RemoveRange(db.Schedules);
-    db.AudioFiles.RemoveRange(audioFiles);
-    await db.SaveChangesAsync();
-
-    return Results.Ok(new { message = "Reset completed" });
-});
+    catch (Exception ex)
+    {
+        return Results.BadRequest($"Reset failed: {ex.Message}");
+    }
+}).DisableAntiforgery();
 
 // --- Audio Files API ---
 app.MapGet("/api/audiofiles", async (AudioFileService svc) =>
@@ -231,6 +241,19 @@ app.MapDelete("/api/audiofiles/{id}", async (HttpContext ctx, int id, AudioFileS
         return Results.BadRequest(ex.Message);
     }
 });
+
+app.MapPost("/api/audiofiles/{id}/delete", async (HttpContext ctx, int id, AudioFileService svc) =>
+{
+    if (!IsAdmin(ctx)) return Results.Forbid();
+    try
+    {
+        return await svc.DeleteAsync(id) ? Results.Ok() : Results.NotFound();
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(ex.Message);
+    }
+}).DisableAntiforgery();
 
 // --- Schedules API ---
 app.MapGet("/api/schedules", async (ScheduleService svc) =>
@@ -271,6 +294,12 @@ app.MapDelete("/api/schedules/{id}", async (HttpContext ctx, int id, ScheduleSer
     if (!IsAdmin(ctx)) return Results.Forbid();
     return await svc.DeleteAsync(id) ? Results.Ok() : Results.NotFound();
 });
+
+app.MapPost("/api/schedules/{id}/delete", async (HttpContext ctx, int id, ScheduleService svc) =>
+{
+    if (!IsAdmin(ctx)) return Results.Forbid();
+    return await svc.DeleteAsync(id) ? Results.Ok() : Results.NotFound();
+}).DisableAntiforgery();
 
 // --- Play Now API (Guest ทำได้) ---
 app.MapPost("/api/play/{audioFileId}", async (int audioFileId, AppDbContext db, AudioService audio) =>

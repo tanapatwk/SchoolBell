@@ -473,11 +473,15 @@ async function resetSystem() {
   if (!confirm('Reset ระบบทั้งหมด? ตารางเวลากริ่งและไฟล์เสียงทั้งหมดจะถูกลบ')) return;
   if (!confirm('ยืนยันอีกครั้ง: การ Reset ไม่สามารถย้อนกลับได้')) return;
 
-  await api('POST', '/reset');
-  toast('Reset ระบบแล้ว');
-  await loadAudioFiles();
-  await loadSchedules();
-  await pollStatus();
+  try {
+    await api('POST', '/reset');
+    toast('Reset ระบบแล้ว');
+    await loadAudioFiles();
+    await loadSchedules();
+    await pollStatus();
+  } catch (e) {
+    toast('Reset ไม่สำเร็จ: ' + e.message);
+  }
 }
 
 // ---- Auth ----
@@ -574,16 +578,19 @@ async function uploadFile(input) {
 }
 
 async function deleteAudio(id) {
-  // เช็คก่อนว่ามีตารางกริ่งใช้อยู่ไหม
-  const usedBy = await api('GET', `/audiofiles/${id}/usedby`);
-  if (usedBy.length > 0) {
-    alert('ไม่สามารถลบได้ เพราะไฟล์นี้ถูกใช้งานในตารางกริ่ง: ' + usedBy.join(', ') + ' กรุณาลบหรือเปลี่ยนไฟล์เสียงในตารางกริ่งก่อน');
-    return;
+  try {
+    const usedBy = await api('GET', `/audiofiles/${id}/usedby`);
+    if (usedBy.length > 0) {
+      alert('ไม่สามารถลบได้ เพราะไฟล์นี้ถูกใช้งานในตารางกริ่ง: ' + usedBy.join(', ') + ' กรุณาลบหรือเปลี่ยนไฟล์เสียงในตารางกริ่งก่อน');
+      return;
+    }
+    if (!confirm('ลบไฟล์เสียงนี้?')) return;
+    await api('POST', `/audiofiles/${id}/delete`);
+    toast('ลบไฟล์แล้ว');
+    await loadAudioFiles();
+  } catch (e) {
+    toast('ลบไฟล์ไม่สำเร็จ: ' + e.message);
   }
-  if (!confirm('ลบไฟล์เสียงนี้?')) return;
-  await api('DELETE', `/audiofiles/${id}`);
-  toast('ลบไฟล์แล้ว');
-  await loadAudioFiles();
 }
 
 async function playNow(id) {
@@ -705,9 +712,14 @@ async function saveSchedule() {
 
 async function deleteSchedule(id) {
   if (!confirm('ลบตารางนี้?')) return;
-  await api('DELETE', `/schedules/${id}`);
-  toast('ลบตารางแล้ว');
-  await loadSchedules();
+  try {
+    await api('POST', `/schedules/${id}/delete`);
+    toast('ลบตารางแล้ว');
+    await loadSchedules();
+    await pollStatus();
+  } catch (e) {
+    toast('ลบตารางไม่สำเร็จ: ' + e.message);
+  }
 }
 
 // ---- Status Polling ----
