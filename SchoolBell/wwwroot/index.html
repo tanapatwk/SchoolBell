@@ -237,8 +237,8 @@
     <div class="card-header">
       <h2>📊 สถานะปัจจุบัน</h2>
       <div class="card-actions">
-        <button class="btn-edit admin-only" onclick="openBrandingModal()">ตั้งค่า</button>
-        <button class="btn-warning admin-only" onclick="resetSystem()">Reset</button>
+        <button type="button" class="btn-edit admin-only" data-action="open-branding">ตั้งค่า</button>
+        <button type="button" class="btn-warning admin-only" data-action="reset-system">Reset</button>
       </div>
     </div>
     <div class="dashboard-grid">
@@ -264,7 +264,7 @@
   <div class="card">
     <div class="card-header">
       <h2>🎵 ไฟล์เสียง</h2>
-      <button class="btn-primary admin-only" onclick="document.getElementById('fileInput').click()">+ เพิ่มไฟล์</button>
+      <button type="button" class="btn-primary admin-only" data-action="upload-audio">+ เพิ่มไฟล์</button>
     </div>
     <input type="file" id="fileInput" accept=".mp3,.wav" style="display:none" onchange="uploadFile(this)">
     <div class="audio-list" id="audioList"></div>
@@ -274,7 +274,7 @@
   <div class="card">
     <div class="card-header">
       <h2>⏰ ตารางเวลากริ่ง</h2>
-      <button class="btn-primary admin-only" id="addScheduleBtn" onclick="openScheduleModal()">+ เพิ่ม</button>
+      <button type="button" class="btn-primary admin-only" id="addScheduleBtn" data-action="add-schedule">+ เพิ่ม</button>
     </div>
     <div class="schedule-list" id="scheduleList"></div>
   </div>
@@ -412,6 +412,32 @@ function escapeHtml(value) {
     "'": '&#39;'
   })[ch]);
 }
+
+document.addEventListener('click', async event => {
+  const button = event.target.closest('[data-action]');
+  if (!button) return;
+
+  const action = button.dataset.action;
+  const id = button.dataset.id ? parseInt(button.dataset.id, 10) : null;
+
+  if (action?.includes('schedule') || action?.includes('audio') || action === 'reset-system' || action === 'open-branding') {
+    event.stopPropagation();
+  }
+
+  try {
+    if (action === 'open-branding') openBrandingModal();
+    else if (action === 'reset-system') await resetSystem();
+    else if (action === 'upload-audio') document.getElementById('fileInput').click();
+    else if (action === 'add-schedule') openScheduleModal();
+    else if (action === 'play-audio' && id !== null) await playNow(id);
+    else if (action === 'stop-audio') await stopPlay();
+    else if (action === 'delete-audio' && id !== null) await deleteAudio(id);
+    else if (action === 'edit-schedule' && id !== null) await editSchedule(id);
+    else if (action === 'delete-schedule' && id !== null) await deleteSchedule(id);
+  } catch (e) {
+    toast('เกิดข้อผิดพลาด: ' + e.message);
+  }
+});
 
 // ---- App Settings ----
 async function loadSettings() {
@@ -552,9 +578,9 @@ async function loadAudioFiles() {
         <div class="audio-size">${formatSize(f.fileSize)}</div>
       </div>
       <div class="audio-actions">
-        <button class="btn-play" data-play-btn="${f.fileName}" onclick="playNow(${f.id})">▶ เล่น</button>
-        <button class="btn-danger" data-stop-btn onclick="stopPlay()" disabled>■ หยุด</button>
-        ${isAdmin ? `<button class="btn-danger" onclick="deleteAudio(${f.id})">ลบ</button>` : ''}
+        <button type="button" class="btn-play" data-play-btn="${f.fileName}" data-action="play-audio" data-id="${f.id}">▶ เล่น</button>
+        <button type="button" class="btn-danger" data-stop-btn data-action="stop-audio" disabled>■ หยุด</button>
+        ${isAdmin ? `<button type="button" class="btn-danger" data-action="delete-audio" data-id="${f.id}">ลบ</button>` : ''}
       </div>
     </div>`).join('');
 
@@ -616,8 +642,8 @@ async function loadSchedules() {
     const dayHtml = days.map((on,i) =>
       `<span class="${on?'':'off'}">${DAY_LABELS[i]}</span>`).join('');
     const adminBtns = isAdmin ? `
-      <button class="btn-edit" onclick="editSchedule(${s.id});event.stopPropagation()">แก้ไข</button>
-      <button class="btn-danger" onclick="deleteSchedule(${s.id});event.stopPropagation()">ลบ</button>` : '';
+      <button type="button" class="btn-edit" data-action="edit-schedule" data-id="${s.id}">แก้ไข</button>
+      <button type="button" class="btn-danger" data-action="delete-schedule" data-id="${s.id}">ลบ</button>` : '';
     return `
       <div class="schedule-item" id="si-${s.id}">
         <div class="schedule-summary" onclick="toggleSchedule(${s.id})">
