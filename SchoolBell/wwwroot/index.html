@@ -16,6 +16,16 @@
     }
     header .left { display: flex; align-items: center; gap: 10px; min-width: 0; }
     header h1 { font-size: 17px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .brand-logo {
+      width: 28px; height: 28px; object-fit: contain;
+      border-radius: 6px; background: rgba(255,255,255,0.15);
+      display: none;
+    }
+    .brand-icon { font-size: 22px; }
+    .app-version {
+      font-size: 11px; color: rgba(255,255,255,0.75);
+      white-space: nowrap;
+    }
 
     .container { max-width: 900px; margin: 20px auto; padding: 0 12px; }
 
@@ -27,7 +37,9 @@
     .card-header {
       display: flex; align-items: center; justify-content: space-between;
       margin-bottom: 14px;
+      gap: 8px;
     }
+    .card-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
     .card h2 { font-size: 15px; font-weight: 600; color: #1a73e8; }
 
     /* ---- Dashboard ---- */
@@ -137,19 +149,12 @@
     }
     .btn-primary { background: #1a73e8; color: white; }
     .btn-danger  { background: #fce8e6; color: #c5221f; }
+    .btn-warning { background: #fff4e5; color: #9a5b00; }
     .btn-play    { background: #e6f4ea; color: #1e7e34; }
     .btn-edit    { background: #e8f0fe; color: #1a73e8; }
     .btn-logout  { background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.4); padding: 6px 12px; }
     .btn-login   { background: white; color: #1a73e8; font-weight: 600; padding: 6px 12px; }
     button:hover { opacity: 0.85; }
-
-    /* ---- Upload ---- */
-    .upload-area {
-      border: 2px dashed #ddd; border-radius: 8px;
-      padding: 18px; text-align: center; color: #888;
-      cursor: pointer; transition: border-color 0.2s; margin-bottom: 12px;
-    }
-    .upload-area:hover { border-color: #1a73e8; color: #1a73e8; }
 
     /* ---- Modals ---- */
     .overlay {
@@ -217,8 +222,10 @@
 
 <header>
   <div class="left">
-    <span style="font-size:22px">🔔</span>
-    <h1>School Bell</h1>
+    <img class="brand-logo" id="brandLogo" alt="">
+    <span class="brand-icon" id="brandIcon">🔔</span>
+    <h1 id="appNameTitle">School Bell</h1>
+    <span class="app-version" id="appVersion"></span>
   </div>
   <div id="authArea"></div>
 </header>
@@ -229,6 +236,10 @@
   <div class="card">
     <div class="card-header">
       <h2>📊 สถานะปัจจุบัน</h2>
+      <div class="card-actions">
+        <button class="btn-edit admin-only" onclick="openBrandingModal()">ตั้งค่า</button>
+        <button class="btn-warning admin-only" onclick="resetSystem()">Reset</button>
+      </div>
     </div>
     <div class="dashboard-grid">
       <div class="status-panel">
@@ -253,14 +264,9 @@
   <div class="card">
     <div class="card-header">
       <h2>🎵 ไฟล์เสียง</h2>
+      <button class="btn-primary admin-only" onclick="document.getElementById('fileInput').click()">+ เพิ่มไฟล์</button>
     </div>
-    <div class="admin-only" id="uploadArea">
-      <div class="upload-area" onclick="document.getElementById('fileInput').click()">
-        <div style="font-size:26px">🎵</div>
-        <div style="margin-top:6px;font-size:13px">คลิกเพื่ออัปโหลดไฟล์ MP3 / WAV</div>
-        <input type="file" id="fileInput" accept=".mp3,.wav" style="display:none" onchange="uploadFile(this)">
-      </div>
-    </div>
+    <input type="file" id="fileInput" accept=".mp3,.wav" style="display:none" onchange="uploadFile(this)">
     <div class="audio-list" id="audioList"></div>
   </div>
 
@@ -273,6 +279,25 @@
     <div class="schedule-list" id="scheduleList"></div>
   </div>
 
+</div>
+
+<!-- Branding Modal -->
+<div class="overlay" id="brandingOverlay">
+  <div class="modal">
+    <h3>ตั้งค่าชื่อระบบและโลโก้</h3>
+    <div class="form-group">
+      <label>ชื่อระบบ / ชื่อโรงเรียน</label>
+      <input type="text" id="brandNameInput" placeholder="เช่น โรงเรียนตัวอย่าง">
+    </div>
+    <div class="form-group">
+      <label>โลโก้</label>
+      <input type="file" id="brandLogoInput" accept=".png,.jpg,.jpeg,.webp">
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeBrandingModal()">ยกเลิก</button>
+      <button class="btn-primary" onclick="saveBranding()">บันทึก</button>
+    </div>
+  </div>
 </div>
 
 <!-- Login Modal -->
@@ -337,6 +362,7 @@
 const DAY_LABELS = ['อา','จ','อ','พ','พฤ','ศ','ส'];
 let isAdmin = false;
 let audioFiles = [];
+let appSettings = { appName: 'School Bell', logoUrl: '', version: '0.1.0-beta' };
 
 async function api(method, path, body) {
   const opts = { method, headers: {} };
@@ -385,6 +411,73 @@ function escapeHtml(value) {
     '"': '&quot;',
     "'": '&#39;'
   })[ch]);
+}
+
+// ---- App Settings ----
+async function loadSettings() {
+  appSettings = await api('GET', '/settings');
+  updateBrandingUI();
+}
+
+function updateBrandingUI() {
+  const name = appSettings.appName || 'School Bell';
+  document.title = name;
+  document.getElementById('appNameTitle').textContent = name;
+  document.getElementById('appVersion').textContent = appSettings.version ? appSettings.version : '';
+
+  const logo = document.getElementById('brandLogo');
+  const icon = document.getElementById('brandIcon');
+  if (appSettings.logoUrl) {
+    logo.src = appSettings.logoUrl;
+    logo.style.display = 'block';
+    icon.style.display = 'none';
+  } else {
+    logo.removeAttribute('src');
+    logo.style.display = 'none';
+    icon.style.display = 'inline';
+  }
+}
+
+function openBrandingModal() {
+  document.getElementById('brandNameInput').value = appSettings.appName || 'School Bell';
+  document.getElementById('brandLogoInput').value = '';
+  document.getElementById('brandingOverlay').classList.add('show');
+}
+
+function closeBrandingModal() {
+  document.getElementById('brandingOverlay').classList.remove('show');
+}
+
+async function saveBranding() {
+  const appName = document.getElementById('brandNameInput').value.trim();
+  if (!appName) { toast('กรุณาใส่ชื่อระบบ'); return; }
+
+  const form = new FormData();
+  form.append('appName', appName);
+  const logo = document.getElementById('brandLogoInput').files[0];
+  if (logo) form.append('logo', logo);
+
+  try {
+    const r = await fetch('/api/settings/branding', { method: 'POST', body: form });
+    if (!r.ok) throw new Error(await r.text());
+    appSettings = await r.json();
+    updateBrandingUI();
+    closeBrandingModal();
+    toast('บันทึกการตั้งค่าแล้ว');
+  } catch (e) {
+    toast('บันทึกไม่สำเร็จ: ' + e.message);
+  }
+}
+
+async function resetSystem() {
+  if (!confirm('Reset ระบบทั้งหมด? ตารางเวลากริ่งและไฟล์เสียงทั้งหมดจะถูกลบ')) return;
+  if (!confirm('ยืนยันอีกครั้ง: การ Reset ไม่สามารถย้อนกลับได้')) return;
+
+  await api('POST', '/reset');
+  toast('Reset ระบบแล้ว');
+  await loadAudioFiles();
+  await loadSchedules();
+  await pollStatus();
 }
 
 // ---- Auth ----
@@ -672,6 +765,7 @@ function updatePlayButtons() {
 setInterval(pollStatus, 1000);
 
 // ---- Init ----
+loadSettings();
 checkAuth();
 pollStatus();
 </script>

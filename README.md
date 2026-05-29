@@ -1,5 +1,7 @@
 # 🔔 School Bell — ระบบกริ่งอัตโนมัติโรงเรียน
 
+Version: `0.1.0-beta`
+
 ระบบกริ่งอัตโนมัติสำหรับโรงเรียน พัฒนาด้วย ASP.NET Core 10 บน Linux (Raspberry Pi / VM)  
 ตั้งเวลากริ่งและจัดการไฟล์เสียงผ่าน Web UI ได้เลย ไม่ต้อง SSH แก้ crontab อีกต่อไป
 
@@ -183,6 +185,7 @@ journalctl -u schoolbell -f
 - Fixed: ป้องกันการอัปโหลดไฟล์เสียงซ้ำด้วยชื่อไฟล์และขนาดไฟล์เดิม
 - Fixed: ป้องกัน XSS จากชื่อไฟล์เสียงและชื่อตารางในหน้า Web UI
 - Fixed: เพิ่ม session cookie hardening ด้วยชื่อ cookie เฉพาะระบบและ `SameSite=Strict`
+- Added: เริ่มนับ version ที่ `0.1.0-beta` พร้อม dashboard/settings สำหรับชื่อระบบ โลโก้ และ reset ข้อมูลระบบ
 
 ---
 

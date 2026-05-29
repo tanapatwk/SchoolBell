@@ -7,6 +7,7 @@ using SchoolBell.Models;
 using SchoolBell.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+const string AppVersion = "0.1.0-beta";
 
 // Database
 builder.Services.AddDbContext<AppDbContext>(opt =>
@@ -77,6 +78,12 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.EnsureCreated();
+    db.Database.ExecuteSqlRaw("""
+        CREATE TABLE IF NOT EXISTS AppSettings (
+            Key TEXT NOT NULL CONSTRAINT PK_AppSettings PRIMARY KEY,
+            Value TEXT NOT NULL
+        )
+        """);
 }
 
 app.UseDefaultFiles();
@@ -120,6 +127,73 @@ app.MapPost("/api/logout", (HttpContext ctx) =>
 
 app.MapGet("/api/me", (HttpContext ctx) =>
     Results.Ok(new { isAdmin = IsAdmin(ctx) }));
+
+// --- App Settings API ---
+app.MapGet("/api/settings", async (AppDbContext db) =>
+    Results.Ok(new
+    {
+        appName = await GetSettingAsync(db, "AppName", "School Bell"),
+        logoUrl = await GetSettingAsync(db, "LogoUrl", ""),
+        version = AppVersion
+    }));
+
+app.MapPost("/api/settings/branding", async (HttpContext ctx, AppDbContext db, IWebHostEnvironment env) =>
+{
+    if (!IsAdmin(ctx)) return Results.Forbid();
+
+    var form = await ctx.Request.ReadFormAsync();
+    var appName = form["appName"].ToString().Trim();
+    if (string.IsNullOrWhiteSpace(appName))
+        return Results.BadRequest("กรุณาใส่ชื่อระบบ");
+    if (appName.Length > 80)
+        return Results.BadRequest("ชื่อระบบต้องไม่เกิน 80 ตัวอักษร");
+
+    await SetSettingAsync(db, "AppName", appName);
+
+    try
+    {
+        var logo = form.Files.GetFile("logo");
+        if (logo is { Length: > 0 })
+        {
+            var logoUrl = await SaveLogoAsync(logo, env);
+            await SetSettingAsync(db, "LogoUrl", logoUrl);
+        }
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(ex.Message);
+    }
+
+    await db.SaveChangesAsync();
+
+    return Results.Ok(new
+    {
+        appName,
+        logoUrl = await GetSettingAsync(db, "LogoUrl", ""),
+        version = AppVersion
+    });
+}).DisableAntiforgery();
+
+app.MapPost("/api/reset", async (HttpContext ctx, AppDbContext db, IWebHostEnvironment env, AudioService audio) =>
+{
+    if (!IsAdmin(ctx)) return Results.Forbid();
+
+    audio.Stop();
+
+    var audioFiles = await db.AudioFiles.ToListAsync();
+    var uploadPath = Path.Combine(env.WebRootPath, "uploads");
+    foreach (var audioFile in audioFiles)
+    {
+        var filePath = Path.Combine(uploadPath, audioFile.FileName);
+        if (File.Exists(filePath)) File.Delete(filePath);
+    }
+
+    db.Schedules.RemoveRange(db.Schedules);
+    db.AudioFiles.RemoveRange(audioFiles);
+    await db.SaveChangesAsync();
+
+    return Results.Ok(new { message = "Reset completed" });
+});
 
 // --- Audio Files API ---
 app.MapGet("/api/audiofiles", async (AudioFileService svc) =>
@@ -290,6 +364,49 @@ static bool RunsOnDay(Schedule schedule, DayOfWeek day) =>
         DayOfWeek.Sunday => schedule.Sunday,
         _ => false
     };
+
+static async Task<string> GetSettingAsync(AppDbContext db, string key, string defaultValue)
+{
+    var setting = await db.AppSettings.FindAsync(key);
+    return setting?.Value ?? defaultValue;
+}
+
+static async Task SetSettingAsync(AppDbContext db, string key, string value)
+{
+    var setting = await db.AppSettings.FindAsync(key);
+    if (setting is null)
+    {
+        db.AppSettings.Add(new AppSetting { Key = key, Value = value });
+        return;
+    }
+
+    setting.Value = value;
+}
+
+static async Task<string> SaveLogoAsync(IFormFile logo, IWebHostEnvironment env)
+{
+    const long maxLogoSizeBytes = 2 * 1024 * 1024;
+    if (logo.Length > maxLogoSizeBytes)
+        throw new InvalidOperationException("โลโก้ต้องมีขนาดไม่เกิน 2 MB");
+
+    var ext = Path.GetExtension(logo.FileName).ToLower();
+    var allowedExtensions = new[] { ".png", ".jpg", ".jpeg", ".webp" };
+    if (!allowedExtensions.Contains(ext))
+        throw new InvalidOperationException("รองรับโลโก้เฉพาะ PNG, JPG หรือ WebP");
+
+    var uploadPath = Path.Combine(env.WebRootPath, "uploads");
+    Directory.CreateDirectory(uploadPath);
+
+    foreach (var oldLogo in Directory.GetFiles(uploadPath, "branding-logo.*"))
+        File.Delete(oldLogo);
+
+    var fileName = $"branding-logo{ext}";
+    var filePath = Path.Combine(uploadPath, fileName);
+    await using var stream = File.Create(filePath);
+    await logo.CopyToAsync(stream);
+
+    return $"/uploads/{fileName}?v={DateTimeOffset.Now.ToUnixTimeSeconds()}";
+}
 
 app.Run();
 
