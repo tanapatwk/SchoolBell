@@ -35,9 +35,18 @@ public class AudioFileService
         if (!await HasValidAudioHeaderAsync(file, ext))
             throw new InvalidOperationException("ไฟล์เสียงไม่ถูกต้องหรือชนิดไฟล์ไม่ตรงกับนามสกุล");
 
+        var originalName = Path.GetFileName(file.FileName);
+        if (string.IsNullOrWhiteSpace(originalName))
+            originalName = $"audio{ext}";
+
+        var duplicateExists = await _db.AudioFiles.AnyAsync(audio =>
+            audio.OriginalName.ToLower() == originalName.ToLower()
+            && audio.FileSize == file.Length);
+        if (duplicateExists)
+            throw new InvalidOperationException("ไฟล์เสียงนี้ถูกอัปโหลดไว้แล้ว");
+
         var fileName = $"{Guid.NewGuid()}{ext}";
         var filePath = Path.Combine(_uploadPath, fileName);
-        var originalName = Path.GetFileName(file.FileName);
 
         await using var stream = File.Create(filePath);
         await file.CopyToAsync(stream);
@@ -45,7 +54,7 @@ public class AudioFileService
         var audioFile = new AudioFile
         {
             FileName = fileName,
-            OriginalName = string.IsNullOrWhiteSpace(originalName) ? fileName : originalName,
+            OriginalName = originalName,
             FileSize = file.Length
         };
 
