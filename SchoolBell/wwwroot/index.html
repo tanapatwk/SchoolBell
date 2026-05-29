@@ -615,8 +615,8 @@ async function loadSchedules() {
       <div class="schedule-item" id="si-${s.id}">
         <div class="schedule-summary" onclick="toggleSchedule(${s.id})">
           <div class="info">
-            <span class="schedule-name">${escapeHtml(s.name)}</span>
             <span class="schedule-time">${escapeHtml(s.time.substring(0,5))}</span>
+            <span class="schedule-name">${escapeHtml(s.name)}</span>
           </div>
           <div class="right">
             <span class="badge ${s.isEnabled?'badge-on':'badge-off'}">${s.isEnabled?'เปิด':'ปิด'}</span>
@@ -728,10 +728,9 @@ function updateDashboard(status) {
   document.getElementById('serverDateValue').textContent = serverTime?.date ?? '-';
 
   const nextBell = status.nextBell;
-  const nextBellTime = formatThaiDateTime(nextBell?.time);
-  document.getElementById('nextBellTimeValue').textContent = nextBellTime?.shortTime ?? '-';
+  document.getElementById('nextBellTimeValue').textContent = nextBell?.timeText ?? '-';
   document.getElementById('nextBellNameValue').textContent = nextBell
-    ? `${nextBell.name}${nextBell.audioName ? ' • ' + nextBell.audioName : ''} • ${nextBellTime?.date ?? ''}`
+    ? `${nextBell.name}${nextBell.audioName ? ' • ' + nextBell.audioName : ''} • ${nextBell.dateText ?? ''}`
     : 'ยังไม่มีตารางที่เปิดใช้งาน';
 
   const playbackPanel = document.getElementById('playbackPanel');

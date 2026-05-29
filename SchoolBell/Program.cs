@@ -306,6 +306,8 @@ app.MapGet("/api/status", async (AudioService audio, AppDbContext db) =>
         {
             name = nextSchedule.Schedule.Name,
             time = nextSchedule.At,
+            timeText = nextSchedule.Schedule.Time.ToString("HH:mm"),
+            dateText = GetThaiDateText(nextSchedule.At!.Value),
             audioName = nextSchedule.Schedule.AudioFile?.OriginalName
         }
     });
@@ -364,6 +366,18 @@ static bool RunsOnDay(Schedule schedule, DayOfWeek day) =>
         DayOfWeek.Sunday => schedule.Sunday,
         _ => false
     };
+
+static string GetThaiDateText(DateTime date)
+{
+    var dayNames = new[] { "อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส." };
+    var monthNames = new[]
+    {
+        "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.",
+        "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."
+    };
+
+    return $"{dayNames[(int)date.DayOfWeek]} {date.Day:00} {monthNames[date.Month - 1]} {date.Year + 543}";
+}
 
 static async Task<string> GetSettingAsync(AppDbContext db, string key, string defaultValue)
 {
