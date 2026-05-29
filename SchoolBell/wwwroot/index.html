@@ -766,9 +766,11 @@ function updateDashboard(status) {
   document.getElementById('serverDateValue').textContent = serverTime?.date ?? '-';
 
   const nextBell = status.nextBell;
-  document.getElementById('nextBellTimeValue').textContent = nextBell?.timeText ?? '-';
+  document.getElementById('nextBellTimeValue').textContent = nextBell
+    ? `${nextBell.timeText} ${nextBell.name}`
+    : '-';
   document.getElementById('nextBellNameValue').textContent = nextBell
-    ? `${nextBell.name}${nextBell.audioName ? ' • ' + nextBell.audioName : ''} • ${nextBell.dateText ?? ''}`
+    ? `${nextBell.audioName ?? '-'} • ${nextBell.dateText ?? ''}`
     : 'ยังไม่มีตารางที่เปิดใช้งาน';
 
   const playbackPanel = document.getElementById('playbackPanel');
