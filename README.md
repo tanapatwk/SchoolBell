@@ -19,6 +19,7 @@ Version: `0.1.0-beta`
 - .NET 10 SDK
 - `mpg123` สำหรับไฟล์ MP3
 - `alsa-utils` / `aplay` สำหรับไฟล์ WAV
+- ตั้ง timezone ของเครื่อง server ให้ถูกต้อง เช่น `Asia/Bangkok`
 
 ---
 
@@ -41,14 +42,21 @@ sudo apt update
 sudo apt install -y mpg123 alsa-utils
 ```
 
-### 3. Clone โปรเจกต์
+### 3. ตั้ง timezone เครื่อง server
+
+```bash
+sudo timedatectl set-timezone Asia/Bangkok
+timedatectl
+```
+
+### 4. Clone โปรเจกต์
 
 ```bash
 git clone https://github.com/tanapatwk/SchoolBell.git
 cd SchoolBell/SchoolBell
 ```
 
-### 4. ตั้งค่ารหัสผ่าน Admin
+### 5. ตั้งค่ารหัสผ่าน Admin
 
 คัดลอกไฟล์ตัวอย่างแล้วแก้ไข
 
@@ -65,7 +73,7 @@ nano appsettings.json
 }
 ```
 
-### 5. Run ทดสอบ
+### 6. Run ทดสอบ
 
 ```bash
 dotnet run --urls "http://0.0.0.0:5196"

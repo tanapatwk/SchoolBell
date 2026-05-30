@@ -87,7 +87,18 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.UseDefaultFiles();
-app.UseStaticFiles();
+app.UseStaticFiles(new StaticFileOptions
+{
+    OnPrepareResponse = ctx =>
+    {
+        if (!string.Equals(ctx.File.Name, "index.html", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        ctx.Context.Response.Headers.CacheControl = "no-cache, no-store, must-revalidate";
+        ctx.Context.Response.Headers.Pragma = "no-cache";
+        ctx.Context.Response.Headers.Expires = "0";
+    }
+});
 app.UseAntiforgery();
 app.UseSession();
 app.UseRateLimiter();
