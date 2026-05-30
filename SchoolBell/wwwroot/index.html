@@ -16,6 +16,7 @@
     }
     header .left { display: flex; align-items: center; gap: 10px; min-width: 0; }
     header h1 { font-size: 17px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .brand-text { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
     .brand-logo {
       width: 28px; height: 28px; object-fit: contain;
       border-radius: 6px; background: rgba(255,255,255,0.15);
@@ -25,6 +26,21 @@
     .app-version {
       font-size: 11px; color: rgba(255,255,255,0.75);
       white-space: nowrap;
+    }
+    #authArea { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-shrink: 0; }
+
+    @media (max-width: 520px) {
+      header { padding: 14px 8px; gap: 6px; }
+      header .left { flex: 1 1 auto; min-width: 0; gap: 8px; }
+      .brand-logo { width: 30px; height: 30px; }
+      .brand-icon { flex-shrink: 0; }
+      .brand-text { flex: 1 1 auto; min-width: 0; flex-direction: column; align-items: flex-start; gap: 2px; }
+      header h1 { width: 100%; max-width: none; font-size: 16px; line-height: 1.2; }
+      .app-version { font-size: 11px; line-height: 1; }
+      #authArea { flex: 0 0 auto; min-width: 86px; flex-direction: column; align-items: flex-end; gap: 4px; }
+      #authArea .guest-badge { margin-right: 0 !important; }
+      #authArea .btn-login,
+      #authArea .btn-logout { padding: 6px 10px; font-size: 13px; }
     }
 
     .container { max-width: 900px; margin: 20px auto; padding: 0 12px; }
@@ -63,6 +79,7 @@
       font-size: 12px;
       margin-bottom: 6px;
     }
+    .status-label-extra { color: #999; margin-left: 4px; }
     .status-value {
       font-size: 18px;
       font-weight: 600;
@@ -224,8 +241,10 @@
   <div class="left">
     <img class="brand-logo" id="brandLogo" alt="">
     <span class="brand-icon" id="brandIcon">🔔</span>
-    <h1 id="appNameTitle">School Bell</h1>
-    <span class="app-version" id="appVersion"></span>
+    <div class="brand-text">
+      <h1 id="appNameTitle">School Bell</h1>
+      <span class="app-version" id="appVersion"></span>
+    </div>
   </div>
   <div id="authArea"></div>
 </header>
@@ -248,7 +267,7 @@
         <div class="status-sub" id="serverDateValue">-</div>
       </div>
       <div class="status-panel">
-        <div class="status-label">กริ่งถัดไป</div>
+        <div class="status-label">กริ่งถัดไป <span class="status-label-extra" id="nextBellDateLabel"></span></div>
         <div class="status-value" id="nextBellTimeValue">-</div>
         <div class="status-sub" id="nextBellNameValue">ยังไม่มีตารางที่เปิดใช้งาน</div>
       </div>
@@ -766,11 +785,12 @@ function updateDashboard(status) {
   document.getElementById('serverDateValue').textContent = serverTime?.date ?? '-';
 
   const nextBell = status.nextBell;
+  document.getElementById('nextBellDateLabel').textContent = nextBell?.dateText ?? '';
   document.getElementById('nextBellTimeValue').textContent = nextBell
     ? `${nextBell.timeText} ${nextBell.name}`
     : '-';
   document.getElementById('nextBellNameValue').textContent = nextBell
-    ? `${nextBell.audioName ?? '-'} • ${nextBell.dateText ?? ''}`
+    ? (nextBell.audioName ?? '-')
     : 'ยังไม่มีตารางที่เปิดใช้งาน';
 
   const playbackPanel = document.getElementById('playbackPanel');
