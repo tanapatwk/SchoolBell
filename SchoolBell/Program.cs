@@ -327,9 +327,13 @@ app.MapGet("/api/status", async (AudioService audio, AppDbContext db) =>
     var now = DateTime.Now;
     var currentFileName = audio.CurrentFileName;
     var playbackStartedAt = audio.PlaybackStartedAt;
+    var lastPlaybackErrorFileName = audio.LastPlaybackErrorFileName;
     var currentAudio = currentFileName is null
         ? null
         : await db.AudioFiles.FirstOrDefaultAsync(a => a.FileName == currentFileName);
+    var lastPlaybackErrorAudio = lastPlaybackErrorFileName is null
+        ? null
+        : await db.AudioFiles.FirstOrDefaultAsync(a => a.FileName == lastPlaybackErrorFileName);
     var nextSchedule = await GetNextScheduleAsync(db, now);
 
     return Results.Ok(new
@@ -342,6 +346,10 @@ app.MapGet("/api/status", async (AudioService audio, AppDbContext db) =>
         playbackElapsedSeconds = playbackStartedAt.HasValue
             ? Math.Max(0, (int)(now - playbackStartedAt.Value).TotalSeconds)
             : 0,
+        lastPlaybackError = audio.LastPlaybackError,
+        lastPlaybackErrorAt = audio.LastPlaybackErrorAt,
+        lastPlaybackErrorFileName,
+        lastPlaybackErrorAudioName = lastPlaybackErrorAudio?.OriginalName,
         nextBell = nextSchedule is null ? null : new
         {
             name = nextSchedule.Schedule.Name,

@@ -97,6 +97,7 @@
       text-overflow: ellipsis;
     }
     .status-playing { background: #e6f4ea; border-color: #b7e1c1; }
+    .status-error { background: #fff4e5; border-color: #ffd8a8; }
     .status-idle { background: #fafafa; }
 
     /* ---- Schedule list (mobile-first) ---- */
@@ -794,14 +795,25 @@ function updateDashboard(status) {
     : 'ยังไม่มีตารางที่เปิดใช้งาน';
 
   const playbackPanel = document.getElementById('playbackPanel');
+  const lastErrorAt = status.lastPlaybackErrorAt ? new Date(status.lastPlaybackErrorAt) : null;
+  const hasRecentPlaybackError = !status.isPlaying
+    && status.lastPlaybackError
+    && lastErrorAt
+    && (Date.now() - lastErrorAt.getTime()) < 10 * 60 * 1000;
   playbackPanel.classList.toggle('status-playing', status.isPlaying);
-  playbackPanel.classList.toggle('status-idle', !status.isPlaying);
-  document.getElementById('playbackStatusValue').textContent = status.isPlaying
-    ? (status.currentAudioName ?? status.currentFileName ?? 'กำลังเล่น')
-    : 'ไม่ได้เล่น';
-  document.getElementById('playbackElapsedValue').textContent = status.isPlaying
-    ? `เล่นไปแล้ว ${formatDuration(status.playbackElapsedSeconds)}`
-    : '-';
+  playbackPanel.classList.toggle('status-error', hasRecentPlaybackError);
+  playbackPanel.classList.toggle('status-idle', !status.isPlaying && !hasRecentPlaybackError);
+  if (status.isPlaying) {
+    document.getElementById('playbackStatusValue').textContent = status.currentAudioName ?? status.currentFileName ?? 'กำลังเล่น';
+    document.getElementById('playbackElapsedValue').textContent = `เล่นไปแล้ว ${formatDuration(status.playbackElapsedSeconds)}`;
+  } else if (hasRecentPlaybackError) {
+    const errorAudio = status.lastPlaybackErrorAudioName ?? status.lastPlaybackErrorFileName ?? 'ไฟล์เสียง';
+    document.getElementById('playbackStatusValue').textContent = 'เล่นไม่สำเร็จ';
+    document.getElementById('playbackElapsedValue').textContent = `${errorAudio} • ${status.lastPlaybackError}`;
+  } else {
+    document.getElementById('playbackStatusValue').textContent = 'ไม่ได้เล่น';
+    document.getElementById('playbackElapsedValue').textContent = '-';
+  }
 }
 
 function updatePlayButtons() {
